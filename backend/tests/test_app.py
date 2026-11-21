@@ -69,7 +69,7 @@ def test_feedback_updates_notes_and_fits_due_review_in_plan(tmp_path, monkeypatc
         assert client.get("/api/dashboard?day=2026-11-22").json()["plan"] is None
 
 
-def test_ai_plan_rejects_unknown_slugs_and_over_budget(monkeypatch):
+def test_ai_plan_rejects_unknown_slugs_and_trims_to_budget(monkeypatch):
     from backend.app import ai, coach
 
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
@@ -82,7 +82,10 @@ def test_ai_plan_rejects_unknown_slugs_and_over_budget(monkeypatch):
     monkeypatch.setattr(ai, "generate", lambda *_: answer(["invented-question"]))
     assert coach.choose_plan(options, 30, [])[1] == "rules"
     monkeypatch.setattr(ai, "generate", lambda *_: answer([item["slug"] for item in options[:3]]))
-    assert coach.choose_plan(options, 30, [])[1] == "rules"
+    items, source = coach.choose_plan(options, 30, [])
+    assert source == "ai"
+    assert len(items) == 2
+    assert sum(item["minutes"] for item in items) == 30
     monkeypatch.setattr(ai, "generate", lambda *_: answer([options[0]["slug"]]))
     assert coach.choose_plan(options, 30, [])[1] == "ai"
 
